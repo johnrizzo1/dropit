@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -16,7 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-const maxUploadSize = 10 << 20 // 10 MB
+var maxUploadSize int64 = 10 << 20 // 10 MB default
 
 var s3Client *s3.Client
 var s3Bucket string
@@ -61,6 +62,15 @@ func main() {
 		})
 	}
 	s3Client = s3.NewFromConfig(cfg, s3Opts...)
+
+	if v := os.Getenv("MAX_UPLOAD_SIZE_MB"); v != "" {
+		mb, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || mb <= 0 {
+			log.Fatalf("Invalid MAX_UPLOAD_SIZE_MB: %s", v)
+		}
+		maxUploadSize = mb << 20
+	}
+	log.Printf("Max upload size: %d MB", maxUploadSize>>20)
 
 	http.Handle("/", http.FileServer(http.Dir("static")))
 	http.HandleFunc("/upload", handleUpload)
