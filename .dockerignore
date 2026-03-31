@@ -1,0 +1,10 @@
+.env
+.devenv*
+.direnv
+tmp/
+.git
+.gitignore
+.dockerignore
+devenv.nix
+devenv.yaml
+.envrc
