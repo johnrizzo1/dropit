@@ -1,0 +1,4 @@
+{$DOMAIN} {
+	reverse_proxy dropit:8080
+	tls {$EMAIL}
+}

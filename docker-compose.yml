@@ -1,9 +1,30 @@
 services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      - DOMAIN=${DOMAIN:?Set DOMAIN in .env}
+      - EMAIL=${EMAIL:-johnrizzo1@gmail.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - dropit
+
   dropit:
     build: .
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     env_file:
       - .env
     environment:
       - PORT=8080
+
+volumes:
+  caddy_data:
+  caddy_config:
