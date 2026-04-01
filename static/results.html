@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reverser - All Runs</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .runs-table-wrap {
+      overflow-x: auto;
+      border: 1px solid #1e1e3a;
+      border-radius: 10px;
+      background: #0a0a14;
+    }
+    .runs-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    .runs-table th {
+      text-align: left;
+      padding: 0.7rem 1rem;
+      color: #666;
+      font-weight: 600;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border-bottom: 1px solid #1e1e3a;
+      background: #111128;
+      position: sticky;
+      top: 0;
+    }
+    .runs-table td {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid #141430;
+      vertical-align: middle;
+    }
+    .runs-table tbody tr {
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .runs-table tbody tr:hover {
+      background: #141432;
+    }
+    .runs-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .tbl-name {
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-weight: 600;
+      color: #fff;
+    }
+    .tbl-mode {
+      display: inline-block;
+      padding: 0.15rem 0.55rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .tbl-mode.analyze { background: #1a1a4e; color: #c77dff; }
+    .tbl-mode.triage { background: #1a3a2a; color: #4ecca3; }
+    .tbl-mode.solve { background: #3a1a1a; color: #e94560; }
+    .tbl-mode.unknown { background: #1a1a2e; color: #666; }
+    .tbl-ts { color: #888; white-space: nowrap; font-size: 0.8rem; }
+    .tbl-num { color: #aaa; font-family: "SF Mono", "Fira Code", monospace; font-size: 0.82rem; }
+    .tbl-budget { color: #e9a545; font-family: "SF Mono", "Fira Code", monospace; font-size: 0.82rem; }
+    .tbl-files { color: #4ecca3; font-size: 0.8rem; }
+    .tbl-loading { color: #333; font-style: italic; font-size: 0.78rem; }
+  </style>
+</head>
+<body>
+  <nav class="main-nav">
+    <a class="nav-brand" href="/"><span>&gt;</span> Reverser</a>
+    <div class="nav-links">
+      <a href="/">Home</a>
+      <a href="/results.html" class="active">All Runs</a>
+    </div>
+    <div class="nav-spacer"></div>
+    <button class="nav-action" onclick="openUploadModal()">Submit Binary</button>
+  </nav>
+
+  <div class="container">
+    <!-- Runs list -->
+    <div id="runs-view">
+      <h2 style="color:#fff;font-size:1.1rem;margin-bottom:1rem">Analysis Runs</h2>
+      <div id="runs-list"><div class="loading">Loading...</div></div>
+    </div>
+
+    <!-- Detail view -->
+    <div id="detail-view" style="display:none">
+      <a class="back-link" onclick="showRunsList()">&larr; All runs</a>
+      <h2 id="detail-title" style="font-family:'SF Mono','Fira Code',monospace;color:#fff;font-size:1.2rem;margin-bottom:0.5rem"></h2>
+      <div id="detail-pills" class="info-pills"></div>
+      <div id="terminal-box"></div>
+      <div id="results-box"></div>
+      <div id="files-box"></div>
+    </div>
+  </div>
+
+  <!-- Upload modal -->
+  <div class="modal-overlay" id="upload-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Submit Binary for Analysis</h3>
+        <button class="modal-close" onclick="closeUploadModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="drop-zone">
+          <div class="dz-icon">&#9655;</div>
+          <p>Drop binary here or click to browse</p>
+          <p class="dz-hint">Max 10 MB per file</p>
+        </div>
+        <input type="file" id="file-input" multiple>
+        <div id="captcha-container" style="display:none;justify-content:center;margin-top:1rem"></div>
+        <div id="upload-progress"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="/shared.js"></script>
+  <script>
+    initUploadModal();
+    loadRuns();
+
+    async function loadRuns() {
+      const box = document.getElementById('runs-list');
+      try {
+        const resp = await fetch('/api/runs');
+        const data = await resp.json();
+        if (!data.runs || data.runs.length === 0) {
+          box.innerHTML = '<div class="empty-state">No analysis runs yet.</div>';
+          return;
+        }
+
+        // Build table skeleton immediately
+        let html = '<div class="runs-table-wrap"><table class="runs-table"><thead><tr>';
+        html += '<th>Binary</th><th>Date</th><th>Mode</th><th>Budget</th><th>Turns</th><th>Tools</th><th>Files</th>';
+        html += '</tr></thead><tbody>';
+
+        for (const run of data.runs) {
+          const name = parseBinaryName(run.name);
+          const ts = parseTimestamp(run.name);
+          html += `<tr onclick="showRunDetail('${esc(run.name)}')" id="row-${esc(run.name)}">
+            <td class="tbl-name">${esc(name)}</td>
+            <td class="tbl-ts">${ts ? esc(ts) : '&mdash;'}</td>
+            <td class="tbl-loading" data-col="mode">&middot;&middot;&middot;</td>
+            <td class="tbl-loading" data-col="budget">&middot;&middot;&middot;</td>
+            <td class="tbl-loading" data-col="turns">&middot;&middot;&middot;</td>
+            <td class="tbl-loading" data-col="tools">&middot;&middot;&middot;</td>
+            <td class="tbl-loading" data-col="files">&middot;&middot;&middot;</td>
+          </tr>`;
+        }
+
+        html += '</tbody></table></div>';
+        box.innerHTML = html;
+
+        // Fetch session metadata for each run in parallel
+        const fetches = data.runs.map(run => loadRunMeta(run.name));
+        await Promise.allSettled(fetches);
+
+      } catch {
+        box.innerHTML = '<div class="empty-state">Failed to load runs.</div>';
+      }
+    }
+
+    async function loadRunMeta(runName) {
+      const row = document.getElementById('row-' + runName);
+      if (!row) return;
+
+      try {
+        const resp = await fetch(`/api/runs/${encodeURIComponent(runName)}/files`);
+        const data = await resp.json();
+        const files = data.files || [];
+
+        // Update files column
+        const filesCell = row.querySelector('[data-col="files"]');
+        filesCell.className = 'tbl-files';
+        filesCell.textContent = files.length;
+
+        // Find session.jsonl and parse it
+        const sessionFile = files.find(f => f.name === 'session.jsonl');
+        if (!sessionFile) {
+          setRowPlaceholders(row);
+          return;
+        }
+
+        const events = await fetchSessionEvents(sessionFile.key);
+        const start = events.find(e => e.type === 'session_start');
+        const turns = events.filter(e => e.type === 'turn').length;
+        const tools = events.filter(e => e.type === 'tool_call').length;
+
+        // Mode
+        const modeCell = row.querySelector('[data-col="mode"]');
+        if (start && start.mode) {
+          const m = start.mode;
+          modeCell.innerHTML = `<span class="tbl-mode ${esc(m)}">${esc(m)}</span>`;
+        } else {
+          modeCell.innerHTML = '<span class="tbl-mode unknown">?</span>';
+        }
+
+        // Budget
+        const budgetCell = row.querySelector('[data-col="budget"]');
+        budgetCell.className = 'tbl-budget';
+        budgetCell.textContent = start && start.budget ? `$${start.budget}` : '\u2014';
+
+        // Turns
+        const turnsCell = row.querySelector('[data-col="turns"]');
+        turnsCell.className = 'tbl-num';
+        turnsCell.textContent = turns || '\u2014';
+
+        // Tools
+        const toolsCell = row.querySelector('[data-col="tools"]');
+        toolsCell.className = 'tbl-num';
+        toolsCell.textContent = tools || '\u2014';
+
+      } catch {
+        setRowPlaceholders(row);
+      }
+    }
+
+    function setRowPlaceholders(row) {
+      for (const cell of row.querySelectorAll('.tbl-loading')) {
+        cell.className = 'tbl-num';
+        cell.textContent = '\u2014';
+      }
+    }
+
+    function showRunsList() {
+      document.getElementById('detail-view').style.display = 'none';
+      document.getElementById('runs-view').style.display = 'block';
+    }
+
+    async function showRunDetail(name) {
+      document.getElementById('runs-view').style.display = 'none';
+      document.getElementById('detail-view').style.display = 'block';
+      document.getElementById('detail-title').textContent = parseBinaryName(name);
+      document.getElementById('detail-pills').innerHTML = '';
+      document.getElementById('results-box').innerHTML = '<div class="loading">Loading...</div>';
+      document.getElementById('terminal-box').innerHTML = '';
+      document.getElementById('files-box').innerHTML = '';
+
+      try {
+        const resp = await fetch(`/api/runs/${encodeURIComponent(name)}/files`);
+        const data = await resp.json();
+        const files = data.files || [];
+
+        const sessionFile = files.find(f => f.name === 'session.jsonl');
+        let events = [];
+        if (sessionFile) events = await fetchSessionEvents(sessionFile.key);
+
+        document.getElementById('detail-pills').innerHTML = buildPillsHTML(events);
+        document.getElementById('results-box').innerHTML = buildResultsHighlightHTML(events);
+
+        if (events.length > 0) {
+          document.getElementById('terminal-box').innerHTML = buildTerminalHTML(events, `reverser session \u2014 ${parseBinaryName(name)}`);
+          const body = document.querySelector('#terminal-box .terminal-body');
+          if (body) body.scrollTop = body.scrollHeight;
+        }
+
+        document.getElementById('files-box').innerHTML = buildFilesHTML(files);
+      } catch {
+        document.getElementById('results-box').innerHTML = '<div class="empty-state">Failed to load.</div>';
+      }
+    }
+  </script>
+</body>
+</html>

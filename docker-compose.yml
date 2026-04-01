@@ -1,30 +1,26 @@
 services:
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    environment:
-      - DOMAIN=${DOMAIN:?Set DOMAIN in .env}
-      - EMAIL=${EMAIL:-johnrizzo1@gmail.com}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - dropit
-
   dropit:
     build: .
-    expose:
-      - "8080"
+    network_mode: host
     env_file:
       - .env
     environment:
       - PORT=8080
+      - REDIS_URL=127.0.0.1:6379
+    depends_on:
+      valkey:
+        condition: service_healthy
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    network_mode: host
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 5
+    volumes:
+      - valkey_data:/data
 
 volumes:
-  caddy_data:
-  caddy_config:
+  valkey_data:

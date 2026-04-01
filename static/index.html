@@ -3,220 +3,111 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DropIt</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #1a1a2e;
-      color: #e0e0e0;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
-
-    h1 {
-      font-size: 2rem;
-      margin-bottom: 1.5rem;
-      color: #fff;
-    }
-
-    #drop-zone {
-      width: 500px;
-      max-width: 90vw;
-      height: 300px;
-      border: 3px dashed #444;
-      border-radius: 16px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: border-color 0.2s, background 0.2s;
-      background: #16213e;
-    }
-
-    #drop-zone.dragover {
-      border-color: #0f3460;
-      background: #1a1a4e;
-    }
-
-    #drop-zone.uploading {
-      border-color: #e94560;
-      pointer-events: none;
-    }
-
-    #drop-zone p {
-      font-size: 1.1rem;
-      color: #999;
-      margin-bottom: 1rem;
-    }
-
-    #drop-zone .icon {
-      font-size: 3rem;
-      margin-bottom: 1rem;
-      opacity: 0.6;
-    }
-
-    #file-input {
-      display: none;
-    }
-
-    #progress {
-      width: 500px;
-      max-width: 90vw;
-      margin-top: 1.5rem;
-    }
-
-    .upload-item {
-      background: #16213e;
-      border-radius: 8px;
-      padding: 0.75rem 1rem;
-      margin-bottom: 0.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .upload-item .name {
-      font-size: 0.9rem;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      max-width: 300px;
-    }
-
-    .upload-item .status {
-      font-size: 0.85rem;
-      font-weight: 600;
-    }
-
-    .status-uploading { color: #e94560; }
-    .status-done { color: #4ecca3; }
-    .status-error { color: #ff6b6b; }
-
-    .progress-bar {
-      width: 100%;
-      height: 4px;
-      background: #333;
-      border-radius: 2px;
-      margin-top: 0.5rem;
-      overflow: hidden;
-    }
-
-    .progress-bar .fill {
-      height: 100%;
-      background: #e94560;
-      border-radius: 2px;
-      transition: width 0.3s;
-    }
-  </style>
+  <title>Reverser</title>
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <h1>DropIt</h1>
-  <div id="drop-zone">
-    <div class="icon">&#128230;</div>
-    <p>Drop files here or click to browse</p>
-    <p style="font-size: 0.85rem; color: #666;">Max 10 MB per file</p>
+  <nav class="main-nav">
+    <a class="nav-brand" href="/"><span>&gt;</span> Reverser</a>
+    <div class="nav-links">
+      <a href="/" class="active">Home</a>
+      <a href="/results.html">All Runs</a>
+    </div>
+    <div class="nav-spacer"></div>
+    <button class="nav-action" onclick="openUploadModal()">Submit Binary</button>
+  </nav>
+
+  <div class="hero" id="hero">
+    <h2>Automated Binary Analysis</h2>
+    <p>AI-powered reverse engineering in isolated containers. Drop a binary and get results.</p>
   </div>
-  <input type="file" id="file-input" multiple>
-  <div id="progress"></div>
 
-  <script>
-    const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('file-input');
-    const progressArea = document.getElementById('progress');
+  <div class="container">
+    <div id="showcase"><div class="loading">Loading latest analysis...</div></div>
+  </div>
 
-    dropZone.addEventListener('click', () => fileInput.click());
-
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('dragover');
-    });
-
-    dropZone.addEventListener('dragleave', () => {
-      dropZone.classList.remove('dragover');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-      handleFiles(e.dataTransfer.files);
-    });
-
-    fileInput.addEventListener('change', () => {
-      handleFiles(fileInput.files);
-      fileInput.value = '';
-    });
-
-    function handleFiles(files) {
-      for (const file of files) {
-        uploadFile(file);
-      }
-    }
-
-    function uploadFile(file) {
-      const item = document.createElement('div');
-      item.className = 'upload-item';
-      item.innerHTML = `
-        <div>
-          <div class="name">${escapeHtml(file.name)}</div>
-          <div class="progress-bar"><div class="fill" style="width: 0%"></div></div>
+  <!-- Upload modal -->
+  <div class="modal-overlay" id="upload-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Submit Binary for Analysis</h3>
+        <button class="modal-close" onclick="closeUploadModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="drop-zone">
+          <div class="dz-icon">&#9655;</div>
+          <p>Drop binary here or click to browse</p>
+          <p class="dz-hint">Max 10 MB per file</p>
         </div>
-        <div class="status status-uploading">Uploading...</div>
-      `;
-      progressArea.prepend(item);
+        <input type="file" id="file-input" multiple>
+        <div id="captcha-container" style="display:none;justify-content:center;margin-top:1rem"></div>
+        <div id="upload-progress"></div>
+      </div>
+    </div>
+  </div>
 
-      const fill = item.querySelector('.fill');
-      const status = item.querySelector('.status');
-      const formData = new FormData();
-      formData.append('file', file);
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="/shared.js"></script>
+  <script>
+    initUploadModal();
+    loadShowcase();
 
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/upload');
+    async function loadShowcase() {
+      const box = document.getElementById('showcase');
+      try {
+        const resp = await fetch('/api/runs');
+        const data = await resp.json();
 
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          const pct = Math.round((e.loaded / e.total) * 100);
-          fill.style.width = pct + '%';
+        if (!data.runs || data.runs.length === 0) {
+          box.innerHTML = `<div class="empty-state">
+            No analyses yet. <a href="#" onclick="openUploadModal();return false" style="color:#e94560">Submit a binary</a> to get started.
+          </div>`;
+          return;
         }
-      });
 
-      xhr.addEventListener('load', () => {
-        try {
-          const resp = JSON.parse(xhr.responseText);
-          if (resp.success) {
-            status.textContent = 'Done';
-            status.className = 'status status-done';
-            fill.style.width = '100%';
-            fill.style.background = '#4ecca3';
-          } else {
-            status.textContent = resp.error || 'Error';
-            status.className = 'status status-error';
-            fill.style.background = '#ff6b6b';
-          }
-        } catch {
-          status.textContent = 'Error';
-          status.className = 'status status-error';
+        // Pick a random run
+        const run = data.runs[Math.floor(Math.random() * data.runs.length)];
+        const name = run.name;
+        const binaryName = parseBinaryName(name);
+
+        // Update hero
+        document.getElementById('hero').innerHTML += `<div class="binary-label">${esc(binaryName)}</div>`;
+
+        // Load files and session
+        const filesResp = await fetch(`/api/runs/${encodeURIComponent(name)}/files`);
+        const filesData = await filesResp.json();
+        const files = filesData.files || [];
+
+        const sessionFile = files.find(f => f.name === 'session.jsonl');
+        let events = [];
+        if (sessionFile) {
+          events = await fetchSessionEvents(sessionFile.key);
         }
-      });
 
-      xhr.addEventListener('error', () => {
-        status.textContent = 'Network error';
-        status.className = 'status status-error';
-        fill.style.background = '#ff6b6b';
-      });
+        let html = '';
 
-      xhr.send(formData);
-    }
+        // Pills
+        const pillsHTML = buildPillsHTML(events);
+        if (pillsHTML) html += `<div class="info-pills">${pillsHTML}</div>`;
 
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+        // Terminal first
+        if (events.length > 0) {
+          html += buildTerminalHTML(events, `reverser session — ${binaryName}`);
+        }
+
+        // Results highlight below
+        html += buildResultsHighlightHTML(events);
+
+        // Files
+        html += buildFilesHTML(files);
+
+        box.innerHTML = html;
+
+      } catch (err) {
+        box.innerHTML = '<div class="empty-state">Failed to load analysis data.</div>';
+        console.error(err);
+      }
     }
   </script>
 </body>
