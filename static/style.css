@@ -114,6 +114,13 @@ nav.main-nav {
   color: #556;
   font-style: italic;
 }
+.results-highlight.status-report {
+  border-left-color: #e94560;
+  background: linear-gradient(135deg, #1a0f1e, #1a1228);
+}
+.results-highlight.status-report h3 {
+  color: #e94560;
+}
 
 /* === Terminal === */
 .terminal {

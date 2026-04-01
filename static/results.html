@@ -67,6 +67,17 @@
     .tbl-budget { color: #e9a545; font-family: "SF Mono", "Fira Code", monospace; font-size: 0.82rem; }
     .tbl-files { color: #4ecca3; font-size: 0.8rem; }
     .tbl-loading { color: #333; font-style: italic; font-size: 0.78rem; }
+    .tbl-status-ok, .tbl-status-fail, .tbl-status-unknown {
+      display: inline-block;
+      padding: 0.15rem 0.55rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .tbl-status-ok { background: #1a3a2a; color: #4ecca3; }
+    .tbl-status-fail { background: #3a1a1a; color: #ff6b6b; }
+    .tbl-status-unknown { background: #1a1a2e; color: #666; }
   </style>
 </head>
 <body>
@@ -137,7 +148,7 @@
 
         // Build table skeleton immediately
         let html = '<div class="runs-table-wrap"><table class="runs-table"><thead><tr>';
-        html += '<th>Binary</th><th>Date</th><th>Mode</th><th>Budget</th><th>Turns</th><th>Tools</th><th>Files</th>';
+        html += '<th>Binary</th><th>Status</th><th>Date</th><th>Mode</th><th>Budget</th><th>Turns</th><th>Tools</th><th>Files</th>';
         html += '</tr></thead><tbody>';
 
         for (const run of data.runs) {
@@ -145,6 +156,7 @@
           const ts = parseTimestamp(run.name);
           html += `<tr onclick="showRunDetail('${esc(run.name)}')" id="row-${esc(run.name)}">
             <td class="tbl-name">${esc(name)}</td>
+            <td class="tbl-loading" data-col="status">&middot;&middot;&middot;</td>
             <td class="tbl-ts">${ts ? esc(ts) : '&mdash;'}</td>
             <td class="tbl-loading" data-col="mode">&middot;&middot;&middot;</td>
             <td class="tbl-loading" data-col="budget">&middot;&middot;&middot;</td>
@@ -179,6 +191,18 @@
         const filesCell = row.querySelector('[data-col="files"]');
         filesCell.className = 'tbl-files';
         filesCell.textContent = files.length;
+
+        // Parse status from STATUS.md
+        const statusCell = row.querySelector('[data-col="status"]');
+        const statusMdContent = await fetchStatusMd(files);
+        if (statusMdContent) {
+          const statusMatch = statusMdContent.match(/\*\*Status:\*\*\s*(\S+)/);
+          const st = statusMatch ? statusMatch[1] : '?';
+          const cls = st === 'SUCCESS' ? 'tbl-status-ok' : st === 'FAILED' ? 'tbl-status-fail' : 'tbl-status-unknown';
+          statusCell.innerHTML = `<span class="${cls}">${esc(st)}</span>`;
+        } else {
+          statusCell.innerHTML = '<span class="tbl-status-unknown">pending</span>';
+        }
 
         // Find session.jsonl and parse it
         const sessionFile = files.find(f => f.name === 'session.jsonl');
@@ -251,8 +275,10 @@
         let events = [];
         if (sessionFile) events = await fetchSessionEvents(sessionFile.key);
 
+        const statusMd = await fetchStatusMd(files);
+
         document.getElementById('detail-pills').innerHTML = buildPillsHTML(events);
-        document.getElementById('results-box').innerHTML = buildResultsHighlightHTML(events);
+        document.getElementById('results-box').innerHTML = buildResultsHighlightHTML(events, statusMd);
 
         if (events.length > 0) {
           document.getElementById('terminal-box').innerHTML = buildTerminalHTML(events, `reverser session \u2014 ${parseBinaryName(name)}`);

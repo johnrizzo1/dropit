@@ -131,13 +131,35 @@ function buildPillsHTML(events) {
   ).join('');
 }
 
-function buildResultsHighlightHTML(events) {
+async function fetchStatusMd(files) {
+  const statusFile = files.find(f => f.name === 'STATUS.md');
+  if (!statusFile) return null;
+  try {
+    const resp = await fetch(`/api/runs/_/file?key=${encodeURIComponent(statusFile.key)}`);
+    return await resp.text();
+  } catch { return null; }
+}
+
+function buildResultsHighlightHTML(events, statusMd) {
+  let html = '';
+
+  // STATUS.md report (primary)
+  if (statusMd) {
+    html += `<div class="results-highlight status-report"><h3>Analysis Report</h3><div class="md-content">${renderMd(statusMd)}</div></div>`;
+  }
+
+  // Agent's last text output (secondary)
   const texts = events.filter(e => e.type === 'text' && e.text && e.text.length > 50);
   const lastText = texts.length > 0 ? texts[texts.length - 1].text : null;
   if (lastText) {
-    return `<div class="results-highlight"><h3>Agent Findings</h3><div class="md-content">${renderMd(lastText)}</div></div>`;
+    html += `<div class="results-highlight"><h3>Agent Findings</h3><div class="md-content">${renderMd(lastText)}</div></div>`;
   }
-  return `<div class="results-highlight"><h3>Agent Findings</h3><div class="no-results">No final results yet.</div></div>`;
+
+  if (!statusMd && !lastText) {
+    html += `<div class="results-highlight"><h3>Results</h3><div class="no-results">No results yet. The analysis may still be in progress.</div></div>`;
+  }
+
+  return html;
 }
 
 function buildFilesHTML(files) {

@@ -97,7 +97,8 @@
         }
 
         // Results highlight below
-        html += buildResultsHighlightHTML(events);
+        const statusMd = await fetchStatusMd(files);
+        html += buildResultsHighlightHTML(events, statusMd);
 
         // Files
         html += buildFilesHTML(files);
